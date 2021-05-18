@@ -1,0 +1,10 @@
+.DS_Store
+.venv/
+KorNLUDatasets/
+mecab-*/
+*.tar.gz
+*.tar
+*.zip
+*.tsv
+*.csv
+*.xlsx
