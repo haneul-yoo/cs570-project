@@ -1,6 +1,7 @@
 .DS_Store
 .venv/
 KorNLUDatasets/
+우리말샘_xml/
 mecab-*/
 *.tar.gz
 *.tar
@@ -8,3 +9,4 @@ mecab-*/
 *.tsv
 *.csv
 *.xlsx
+*.xml

@@ -1,14 +1,20 @@
 import os
 import csv
 import random
+import logging
+logging.basicConfig(level=logging.INFO)
+import re
+import ast
 import nltk
 # import konlpy
+from konlpy.tag import Mecab
 import MeCab
 nltk.download('punkt')
 from googletrans import Translator
 from nltk.tokenize import word_tokenize
 
 def readFiles():
+	logging.info('Start to read KorNLUDatasets train data')
 	files = {
 		'mnli': './KorNLUDatasets/KorNLI/multinli.train.ko.tsv',
 		'snli': './KorNLUDatasets/KorNLI/snli_1.0_train.ko.tsv',
@@ -23,7 +29,7 @@ def readFiles():
 	for name, path in files.items():
 		if name == 'sts':
 			with open(path, 'r', encoding='utf-8') as f:
-				reader = csv.DictReader(f, delimiter='\t')
+				reader = csv.DictReader(f, delimiter='\t', quoting=csv.QUOTE_NONE)
 				for line in reader:
 					datas[name].append({
 						'sentence1': line['sentence1'],
@@ -39,12 +45,14 @@ def readFiles():
 						'sentence2': line['sentence2'],
 						'label': line['gold_label']
 					})
+	logging.info('End to read KorNLUDatasets train data\n')
 	return datas
 
 def writeFiles(datas, augmentation_type):
 	'''
 	@ augmentation_type: 'EDA' or 'BT'
 	'''
+	logging.info('Start to write augmented data files')
 	dir_path = './augmentedDatasets/'
 	if not os.path.exists(dir_path):
 		os.makedirs(dir_path)
@@ -64,6 +72,7 @@ def writeFiles(datas, augmentation_type):
 			writer = csv.DictWriter(f, datas[name][0].keys(), delimiter='\t')
 			writer.writeheader()
 			writer.writerows(datas[name])
+	logging.info('End to write augmented data files')
 
 
 def backTranslation(datas, transfer=False):
@@ -94,8 +103,8 @@ def backTranslation(datas, transfer=False):
 					'sentence2': translator.translate(translator.translate(d['sentence2'], src='ko', dest='en').text, src='en', dest='ko').text,
 					'label': d['label']
 				})
-
 	return bt_datas
+
 
 def EDA(datas):
 	'''
@@ -105,8 +114,31 @@ def EDA(datas):
 	따라서 random_swap이나 random_deletion은 어절 단위로(띄어쓰기 기준)
 	synonym_replacement나 random_insertion은 형태소 단위로 한다
 	'''
+	def get_synonym(word):
+		synonym_data = {}
+		with open('./synonym_dataset.csv', 'r', encoding='utf-8') as f:
+			reader = csv.reader(f)
+			next(reader)
+			for line in reader:
+				hangul = re.compile('[^가-힣]+')
+				word = hangul.sub('', line[0].replace('^', ' '))
+				replaced = [ hangul.sub('', x.replace('^', ' ')) for x in ast.literal_eval(line[1]) ]
+				wtype = line[2]
+				synonym_data[word] = [replaced, wtype]
+		# for k, v in sorted(synonym_data.items())[:100]:
+		# 	print(k, v)
+		if word in synonym_data:
+			return random.choice(synonym_data[word][0])
+		return None
+
 	def synonym_replacement(sent):
-		return eda_sent
+		mecab = Mecab()
+		nouns = mecab.nouns(sent)
+		print(nouns)
+		for noun in nouns:
+			if get_synonym(noun):
+				return sent.replace(noun, get_synonym(noun))
+		return sent
 
 	def random_swap(sent):
 		eda_sent = word_tokenize(sent)[:-1]
@@ -118,7 +150,15 @@ def EDA(datas):
 		return ' '.join(eda_sent)
 
 	def random_insertion(sent):
-		return eda_sent
+		mecab = Mecab()
+		nouns = mecab.nouns(sent)
+		print(nouns)
+		for noun in nouns:
+			if get_synonym(noun):
+				eda_sent = sent.split()
+				eda_sent.insert(random.randint(0, len(eda_sent)), get_synonym(noun))
+				return ' '.join(eda_sent)
+		return sent
 
 	def random_deletion(sent):
 		eda_sent = word_tokenize(sent)[:-1]
@@ -128,26 +168,34 @@ def EDA(datas):
 		eda_sent.append(sent[-1])
 		return ' '.join(eda_sent)
 
+	logging.info('Start to do EDA')
 	eda_datas = {
 		'mnli': [],
 		'snli': [],
 		'sts': []
 	}
 	# eda_operations = [synonym_replacement, random_swap, random_insertion, random_deletion]
-	eda_operations = [random_swap, random_deletion]
+	# eda_operations = [random_swap, random_deletion]
+	eda_operations = [synonym_replacement, random_insertion]
 	for name, data in datas.items():
-		for d in data[:500]:
+		cnt = 0
+		for d in data[:100]:
 			eda_datas[name].append({
 				'sentence1': random.choice(eda_operations)(d['sentence1']),
 				'sentence2': random.choice(eda_operations)(d['sentence2']),
 				'label': d['label']
 			})
+			print(eda_datas[name][cnt])
+			cnt += 1
+			if cnt % 1000 == 0:
+				logging.info('  ' + name+': '+ str(cnt) + '/' + str(len(data)))
+	logging.info('End to do EDA\n')
 	return eda_datas
 
 def main():
 	random_state = 42
 	random.seed(random_state)
-	# backTranslation(readFiles())
+	# backTranslation(readFiles(), 'BT')
 	writeFiles(EDA(readFiles()), 'EDA')
 
 if __name__ == '__main__':
