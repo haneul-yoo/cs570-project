@@ -134,7 +134,6 @@ def EDA(datas):
 	def synonym_replacement(sent):
 		mecab = Mecab()
 		nouns = mecab.nouns(sent)
-		print(nouns)
 		for noun in nouns:
 			if get_synonym(noun):
 				return sent.replace(noun, get_synonym(noun))
@@ -152,7 +151,6 @@ def EDA(datas):
 	def random_insertion(sent):
 		mecab = Mecab()
 		nouns = mecab.nouns(sent)
-		print(nouns)
 		for noun in nouns:
 			if get_synonym(noun):
 				eda_sent = sent.split()
@@ -179,13 +177,12 @@ def EDA(datas):
 	eda_operations = [synonym_replacement, random_insertion]
 	for name, data in datas.items():
 		cnt = 0
-		for d in data[:100]:
+		for d in data:
 			eda_datas[name].append({
 				'sentence1': random.choice(eda_operations)(d['sentence1']),
 				'sentence2': random.choice(eda_operations)(d['sentence2']),
 				'label': d['label']
 			})
-			print(eda_datas[name][cnt])
 			cnt += 1
 			if cnt % 1000 == 0:
 				logging.info('  ' + name+': '+ str(cnt) + '/' + str(len(data)))
