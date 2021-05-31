@@ -115,18 +115,6 @@ def EDA(datas):
 	synonym_replacement나 random_insertion은 형태소 단위로 한다
 	'''
 	def get_synonym(word):
-		synonym_data = {}
-		with open('./synonym_dataset.csv', 'r', encoding='utf-8') as f:
-			reader = csv.reader(f)
-			next(reader)
-			for line in reader:
-				hangul = re.compile('[^가-힣]+')
-				word = hangul.sub('', line[0].replace('^', ' '))
-				replaced = [ hangul.sub('', x.replace('^', ' ')) for x in ast.literal_eval(line[1]) ]
-				wtype = line[2]
-				synonym_data[word] = [replaced, wtype]
-		# for k, v in sorted(synonym_data.items())[:100]:
-		# 	print(k, v)
 		if word in synonym_data:
 			return random.choice(synonym_data[word][0])
 		return None
@@ -134,6 +122,7 @@ def EDA(datas):
 	def synonym_replacement(sent):
 		mecab = Mecab()
 		nouns = mecab.nouns(sent)
+		random.shuffle(nouns)
 		for noun in nouns:
 			if get_synonym(noun):
 				return sent.replace(noun, get_synonym(noun))
@@ -151,6 +140,7 @@ def EDA(datas):
 	def random_insertion(sent):
 		mecab = Mecab()
 		nouns = mecab.nouns(sent)
+		random.shuffle(nouns)
 		for noun in nouns:
 			if get_synonym(noun):
 				eda_sent = sent.split()
@@ -172,9 +162,22 @@ def EDA(datas):
 		'snli': [],
 		'sts': []
 	}
-	# eda_operations = [synonym_replacement, random_swap, random_insertion, random_deletion]
+	eda_operations = [synonym_replacement, random_swap, random_insertion, random_deletion]
 	# eda_operations = [random_swap, random_deletion]
-	eda_operations = [synonym_replacement, random_insertion]
+	# eda_operations = [synonym_replacement, random_insertion]
+
+	synonym_data = {}
+	with open('./synonym_dataset.csv', 'r', encoding='utf-8') as f:
+		reader = csv.reader(f)
+		next(reader)
+		for line in reader:
+			hangul = re.compile('[^가-힣]+')
+			word = hangul.sub('', line[0].replace('^', ' '))
+			replaced = [ hangul.sub('', x.replace('^', ' ')) for x in ast.literal_eval(line[1]) ]
+			wtype = line[2]
+			synonym_data[word] = [replaced, wtype]
+	logging.info('Load synonym data')
+	
 	for name, data in datas.items():
 		cnt = 0
 		for d in data:
